@@ -6,6 +6,7 @@ package rosenpass
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 )
@@ -169,6 +170,12 @@ func receiveFromConn(conn net.PacketConn) ReceiveFunc {
 
 		n, rAddr, err := conn.ReadFrom(buf)
 		if err != nil {
+			// An in-stack socket (e.g. gvisor gonet.UDPConn) signals close with
+			// io.EOF rather than net.ErrClosed. Normalize so the server's
+			// receiveLoop exits instead of spinning on a closed socket (#662).
+			if errors.Is(err, io.EOF) {
+				return nil, nil, net.ErrClosed
+			}
 			return nil, nil, fmt.Errorf("failed to read: %w", err)
 		}
 

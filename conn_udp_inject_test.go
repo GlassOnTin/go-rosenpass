@@ -4,6 +4,8 @@
 package rosenpass
 
 import (
+	"errors"
+	"io"
 	"net"
 	"testing"
 	"time"
@@ -108,4 +110,21 @@ func TestUDPConnNilListenFuncFallsBack(t *testing.T) {
 		t.Fatalf("nil listenFunc should produce a *net.UDPConn, got %T", c.conns["udp4"])
 	}
 	_ = c.Close()
+}
+
+// eofPacketConn models an in-stack socket (gonet.UDPConn) that signals close
+// with io.EOF rather than net.ErrClosed.
+type eofPacketConn struct{ fakePacketConn }
+
+func (e *eofPacketConn) ReadFrom(b []byte) (int, net.Addr, error) { return 0, nil, io.EOF }
+
+// TestReceiveFromConnEOFBecomesClosed guards the #662 close-path fix: an
+// in-stack socket's io.EOF must normalize to net.ErrClosed so the server's
+// receiveLoop exits instead of spinning (observed ~320 log lines/sec on device).
+func TestReceiveFromConnEOFBecomesClosed(t *testing.T) {
+	rf := receiveFromConn(&eofPacketConn{})
+	_, _, err := rf(spk{})
+	if !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("io.EOF should normalize to net.ErrClosed so receiveLoop exits, got %v", err)
+	}
 }

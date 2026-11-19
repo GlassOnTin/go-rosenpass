@@ -1,0 +1,35 @@
+// SPDX-FileCopyrightText: 2023 Steffen Vogel <post@steffenvogel.de>
+// SPDX-License-Identifier: Apache-2.0
+{
+    "go.testFlags": [
+        "-v"
+    ],
+    "cSpell.words": [
+        "ciphertext",
+        "decap",
+        "decaps",
+        "ecti",
+        "encap",
+        "encaps",
+        "epki",
+        "eski",
+        "Fncs",
+        "pidi",
+        "Preshared",
+        "scti",
+        "sctr",
+        "sidi",
+        "sidr",
+        "spki",
+        "spkm",
+        "spkr",
+        "spkt",
+        "sskm",
+        "txkm",
+        "txkt",
+        "txnm",
+        "txnt",
+        "xaead",
+        "XAEAD"
+    ]
+}

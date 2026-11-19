@@ -47,7 +47,16 @@ func (ep UDPEndpoint) Equal(o Endpoint) bool {
 
 type UDPConn struct {
 	listenAddrs []*net.UDPAddr
-	conns       map[string]*net.UDPConn
+	conns       map[string]net.PacketConn
+
+	// listenFunc, when non-nil, replaces net.ListenUDP for binding the
+	// transport socket. It lets an embedder (e.g. NetBird in gvisor netstack
+	// mode) supply an in-stack net.PacketConn such as a gonet.UDPConn instead
+	// of a host kernel socket, so the Rosenpass exchange routes through the
+	// tunnel overlay rather than the host network (#662 phase 2). The
+	// receive/send paths already operate on net.PacketConn, so injecting the
+	// socket here is sufficient to route the whole exchange through it.
+	listenFunc func(network string, addr *net.UDPAddr) (net.PacketConn, error)
 
 	logger *slog.Logger
 }
@@ -55,9 +64,20 @@ type UDPConn struct {
 func NewUDPConn(la []*net.UDPAddr) (*UDPConn, error) {
 	return &UDPConn{
 		listenAddrs: la,
-		conns:       map[string]*net.UDPConn{},
+		conns:       map[string]net.PacketConn{},
 		logger:      slog.Default(),
 	}, nil
+}
+
+// NewUDPConnWithListenFunc is NewUDPConn with a custom socket bind function.
+// Pass nil to fall back to net.ListenUDP (identical to NewUDPConn).
+func NewUDPConnWithListenFunc(la []*net.UDPAddr, lf func(network string, addr *net.UDPAddr) (net.PacketConn, error)) (*UDPConn, error) {
+	c, err := NewUDPConn(la)
+	if err != nil {
+		return nil, err
+	}
+	c.listenFunc = lf
+	return c, nil
 }
 
 func (c *UDPConn) Close() error {
@@ -108,8 +128,15 @@ func (c *UDPConn) LocalEndpoints() (eps []Endpoint, err error) {
 func (c *UDPConn) open(networks map[string]*net.UDPAddr) ([]ReceiveFunc, error) {
 	recvFncs := []ReceiveFunc{}
 
+	listen := c.listenFunc
+	if listen == nil {
+		listen = func(network string, addr *net.UDPAddr) (net.PacketConn, error) {
+			return net.ListenUDP(network, addr)
+		}
+	}
+
 	for network, listenAddr := range networks {
-		conn, err := net.ListenUDP(network, listenAddr)
+		conn, err := listen(network, listenAddr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to listen: %w", err)
 		}

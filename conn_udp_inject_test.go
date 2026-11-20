@@ -20,21 +20,21 @@ type fakePacketConn struct {
 	writes    int
 }
 
-func (f *fakePacketConn) ReadFrom(b []byte) (int, net.Addr, error) {
+func (f *fakePacketConn) ReadFrom(_ []byte) (int, net.Addr, error) {
 	// No traffic in this test; report closed so a receive loop would exit.
 	return 0, nil, net.ErrClosed
 }
 
-func (f *fakePacketConn) WriteTo(b []byte, addr net.Addr) (int, error) {
+func (f *fakePacketConn) WriteTo(b []byte, _ net.Addr) (int, error) {
 	f.writes++
 	return len(b), nil
 }
 
-func (f *fakePacketConn) Close() error                       { f.closed = true; return nil }
-func (f *fakePacketConn) LocalAddr() net.Addr                { return f.localAddr }
-func (f *fakePacketConn) SetDeadline(t time.Time) error      { return nil }
-func (f *fakePacketConn) SetReadDeadline(t time.Time) error  { return nil }
-func (f *fakePacketConn) SetWriteDeadline(t time.Time) error { return nil }
+func (f *fakePacketConn) Close() error                     { f.closed = true; return nil }
+func (f *fakePacketConn) LocalAddr() net.Addr              { return f.localAddr }
+func (f *fakePacketConn) SetDeadline(_ time.Time) error    { return nil }
+func (f *fakePacketConn) SetReadDeadline(_ time.Time) error  { return nil }
+func (f *fakePacketConn) SetWriteDeadline(_ time.Time) error { return nil }
 
 // TestUDPConnInjectsSocket proves NewUDPConnWithListenFunc binds via the
 // injected function (not net.ListenUDP) and stores/routes through the supplied
@@ -116,7 +116,7 @@ func TestUDPConnNilListenFuncFallsBack(t *testing.T) {
 // with io.EOF rather than net.ErrClosed.
 type eofPacketConn struct{ fakePacketConn }
 
-func (e *eofPacketConn) ReadFrom(b []byte) (int, net.Addr, error) { return 0, nil, io.EOF }
+func (e *eofPacketConn) ReadFrom(_ []byte) (int, net.Addr, error) { return 0, nil, io.EOF }
 
 // TestReceiveFromConnEOFBecomesClosed guards the #662 close-path fix: an
 // in-stack socket's io.EOF must normalize to net.ErrClosed so the server's
